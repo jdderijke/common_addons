@@ -1,0 +1,92 @@
+div.switch {
+    position:absolute;
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    width:100px;
+    height:250px;
+    border-radius:10px;
+    border-style:double;
+    border-color:black;
+    background:silver;
+}
+
+
+
+div.switch .thumb {
+    position:relative;
+    width:100%;
+    height:60%;
+    background:slategray;
+    border-radius:10px;
+    border-style:solid;
+    border-width:medium;
+    border-color:black;
+}
+
+
+div.switch .thumb .light {
+    position:absolute;
+    top:12%;
+    left:10%;
+    width:80%;
+    height:10%;
+    background:black;
+    border-radius:10px;
+}
+
+div.switch .thumb .onlabel {
+    position:absolute;
+    top:30%;
+    left:10%;
+    width:80%;
+    height:25%;
+    font-size:1.0em;
+    font-weight:bold;
+    color:red;
+    border-radius:15%;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-around;
+    text-align:center;
+    background:white;
+}
+
+div.switch .thumb .offlabel {
+    position:absolute;
+    top:30%;
+    left:10%;
+    width:80%;
+    height:25%;
+    font-size:1.0em;
+    font-weight:bold;
+    color:white;
+    border-radius:15%;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-around;
+    text-align:center;
+    background:black;
+}
+
+
+div.switch .thumb .lines {
+    position:absolute;
+    top:60%;
+    left:15%;
+    width:70%;
+    height:30%;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-around;
+    background:transparent;
+}
+
+div.switch .thumb .lines .line {
+    width:100%;
+    height:4%;
+    min-height:2px;
+    background:black;
+}
+

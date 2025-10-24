@@ -1,0 +1,145 @@
+* {
+    box-sizing: border-box;
+}
+/* BEGIN Editable Table */
+/* remi style.css settings related to editable tables settings are needed to overrule Remi css settings */
+
+/* ======================= theme0 ================================= */
+.EditableTable.theme0 th {
+	padding: 5px;
+	background: transparent;
+	color:black;
+	font-weight: bold;
+	position:relative;
+}
+
+.EditableTable.theme0 tr {
+	background: transparent;
+}
+
+.EditableTable.theme0 td {
+    padding: 5px;
+	background: transparent;
+	position:relative;
+}
+
+.EditableTable.theme0 .TextInput {
+    width: 80%;
+	background: transparent;
+    border: 2px solid black
+}
+
+/* ======================= theme1 ================================= */
+.EditableTable.theme1 th {
+	padding: 5px;
+	background: yellow;
+	color:black;
+	font-weight: bold;
+	position:relative;
+}
+
+/* includes alternating gray and white with on-hover red color */
+.EditableTable.theme1 tr:nth-child(even) {
+	background: lightgrey;
+}
+
+.EditableTable.theme1 tr:nth-child(odd) {
+	background: grey;
+}
+
+.EditableTable.theme1 tr:hover {
+	background: red;
+	cursor: pointer;
+}
+
+.EditableTable.theme1 td {
+    padding: 5px;
+	background: transparent;
+	position:relative;
+}
+
+.EditableTable.theme1 .TextInput {
+    width: 80%;
+	background: transparent;
+    border: 2px solid black
+}
+
+/*====================== theme2 ====================================*/
+
+.EditableTable.theme2 th {
+	padding: 5px;
+	background: dimgrey;
+	color:black;
+	position:relative;
+}
+
+/* includes alternating gray and white with on-hover red color */
+.EditableTable.theme2 tr:nth-child(even) {
+	background: lightgrey;
+}
+
+.EditableTable.theme2 tr:nth-child(odd) {
+	background: white;
+}
+
+.EditableTable.theme2 tr:hover {
+	background: grey;
+	cursor: pointer;
+}
+
+.EditableTable.theme2 td {
+    padding: 5px;
+	background: transparent;
+	position:relative;
+}
+
+.EditableTable.theme2 .TextInput {
+    width: 80%;
+	background: transparent;
+    border: 1px solid grey
+}
+
+/*
+The following is for tooltips, these elements are added to th or td elements in a table
+default they are invisible, the hoover event changes the visibility
+hoovering is done on either a Tablerow or a Tableitem element
+*/
+.EditableTable th {
+	position:relative;
+}
+.EditableTable td {
+	position:relative;
+}
+
+.EditableTable .tiptext {
+      visibility: hidden;
+      display: block
+      width: 100%;
+      height:auto;
+      overflow:hidden;
+      background-color: white;
+      color: red;
+      text-align: center;
+      border: 2px solid silver;
+      border-radius: 6px;
+      padding: 5px;
+
+      font-size: 1.0em;
+	  font-family: "Lucida Console", "Courier New", monospace;
+	  /*font-weight: bold;*/
+
+      /* Position the tooltip */
+      position: absolute;
+      z-index: 1;
+      top: 50%;
+      left: 50%;
+      /*margin-left: -60px;*/
+}
+
+.EditableTable .hooverhere:hover .tiptext {
+    visibility:visible;
+    white-space: pre;
+}
+
+/* END Editable Table */
+
