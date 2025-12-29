@@ -1,4 +1,4 @@
-from Common_Utils import get_logger
+from common_addons.common_utils import get_logger
 
 logger = get_logger()
 def testroutine():

@@ -1,9 +1,11 @@
 import copy
 from argparse import ArgumentError
+from collections import ChainMap
 from typing import Union
 
 import remi.gui as gui
-import remi_addons
+import remi
+from common_utils import update_css_stylestr, AttrDict, Waitkey, dump
 from remi import TableTitle
 from remi.gui import decorate_event, decorate_set_on_listener
 
@@ -361,6 +363,80 @@ class TableCheckBox(gui.Container):
 		return (new_value,)
 
 
+class DataLabel(gui.HBox):
+	"""
+	Creates an enhanced label widget to be used for presenting a data element
+	The label can contain the following elements:
+	* name: The name of the data element, can be overruled by passing a text argument with an alternative name
+	* group: The category of the data element
+	* value: The value of the data element, with as sub element:
+		* unit: The unit of the value
+	* input: If the data element is RW, an input field element will be shown
+
+	Styles for all elements normally inherit from the class style. To change the style for certain elements pass a stylestring
+	for that element as argument
+	"""
+	style = 'height:auto;width:20%;align-items:center;border-style:solid;border-width:2px;border-color:black'
+	text_style = ''
+	name_style = ''
+	group_style = ''
+	value_style = 'width:auto;height:auto;font-size:1.0em'
+	read_write_style = ''
+	unit_style = ''
+	chkbox_style = ''
+	input_style = ''
+	config = {'show_text':False, 'show_name':True, 'show_group':True, 'show_value':True, 'show_unit':True,
+			  'show_input':True, 'show_read_write':True}
+	fields = ['text', 'name', 'group', 'value', 'read_write', 'unit']
+	def __init__(self, data:any=None, **kwargs):
+		"""
+		:param data:	An string, integer, float or anything that support __str__.
+						Or an object with a name, value, group, unit and rw attribute
+		"""
+		style = update_css_stylestr(self.style, kwargs.pop('style',''))
+		super().__init__(style=style, **kwargs)
+		self.set_style(kwargs.pop('style',''))
+		self.config = AttrDict(ChainMap(kwargs.pop('config', {}), self.config))
+		
+		self.data = {}
+		
+		if data:
+			self.data = data.__dict__
+			self.data = {k:self.data[k] for k in self.fields if k in self.data}
+			self.data = dict(sorted(self.data.items(), key=lambda pair: self.fields.index(pair[0])))
+			pass
+			# if hasattr(data, 'value'): self.data['value'] = data.value
+			# if hasattr(data, 'name'): self.data['name'] = data.name
+			# if hasattr(data, 'group'): self.data['group'] = data.group
+			# if hasattr(data, 'unit'): self.data['unit'] = data.unit
+			# if hasattr(data, 'read_write'):
+			# 	self.data['read_write'] = data.read_write
+
+		else:
+			for k in self.fields:
+				if k in kwargs:
+					self.data[k]= kwargs.pop(k)
+		
+		
+		for field, value in self.data.items():
+			if getattr(self.config, f'show_{field}'):
+				stylestr = update_css_stylestr(getattr(self, f'{field}_style'), kwargs.pop(f'{field}_style', ''))
+				lbl = gui.Label(text=str(value), style=stylestr)
+				setattr(self, f'{field}_lbl', lbl)
+				self.append(lbl)
+				
+		# if self.config.show_value:
+		# 	stylestr = update_css_stylestr(self.value_style, kwargs.pop('value_style', ''))
+		# 	self.name_lbl = gui.Label(text=str(self.data.value if not self.data.alt_text else self.data.alt_text),
+		# 							  style=stylestr)
+		# 	# self.name_lbl = gui.Label(text=self.data.value)
+		# 	self.append(self.name_lbl)
+		
+		# dump(self.config)
+		# Waitkey()
+		
+
+
 class MultilineLabel(gui.Widget):
 	"""Multiple lines label with Markdown support
 
@@ -501,16 +577,16 @@ class ALB_widget(gui.Container):
 		self.name_lbl = None
 		self.slide_cont = None
 		self.alb_slider = None
-		self.alb_switch = None
+		# self.alb_switch = None
 		self.slider_line_indicator = None
 		self.alb_value_lbl = None
 		self.chart = None
 		
 		self.build()
-		self.value = value
+		# self.value = value
 	
 	def build(self):
-		print('pipo')
+		# print('pipo')
 		# Because in Remi tis ALB widgets inherited container may get a position static when used in HBox or VBox.
 		# We need to add a intermediate container ... the main_cont (div tag) with a relative position to provide an
 		# anchor point for the absolute positioning of its inside components
@@ -520,13 +596,18 @@ class ALB_widget(gui.Container):
 									 style='position:absolute;top:0%;left:0%;width:100%;height:100%;background-color:transparent')
 		
 		# The ALB on/off switch is positioned absolute annd should maintain its aspect ratio
-		self.alb_switch = PushBtn(text='ALB', style='position:absolute;bottom:0%;right:0%;width:50px')
-		self.alb_switch.set_value(self.alb_state)
-		self.alb_switch.onpushed.connect(self.onALBstate_change)
+		# self.alb_switch = gui.CheckBox(checked=self.alb_state,
+		# 							   style='position:absolute;bottom:0%;right:0%;width:10px;height:10px')
+		# self.alb_switch.onchange.connect(self.onALBstate_change)
+		
+		# self.alb_switch = PushBtn(text='ALB', style='position:absolute;bottom:0%;right:0%;width:50px')
+		# self.alb_switch.set_value(self.alb_state)
+		# self.alb_switch.onpushed.connect(self.onALBstate_change)
 		
 		self.name_lbl = gui.Label(text=self.name,
 								  style='position:absolute;top:0%;left:0%;width:100%;height:10%;text-align:center;'
-										'font-size:1.2em')
+										'font-size:1.0em')
+		# self.name_lbl.onclick.connect(self.onALBstate_change)
 		
 		# The slider to set the ALB treshold is contained within ist own container
 		bottom_offset = int(17 - (self.height / 100))
@@ -555,8 +636,10 @@ class ALB_widget(gui.Container):
 		self.onALBvalue_change(self.alb_slider, str(self.alb_value))
 		
 		self.main_cont.append(
-			[self.chart_cont, self.slider_line_indicator, self.name_lbl, self.alb_switch, self.slide_cont])
+			[self.chart_cont, self.slider_line_indicator, self.name_lbl, self.slide_cont])
 		self.append(self.main_cont)
+		
+		self.onALBstate_change(self.name_lbl, self.alb_state)
 		self.update_chart()
 	
 	def set_content(self, chart):
@@ -571,12 +654,12 @@ class ALB_widget(gui.Container):
 		"""
 		For compatibility with older JSEM implementations where datapoint call on subscribed widgets refresh method
 		with dp argument. This routine will set the value property of this widget thus triggering an update
-		:param dp: The calling JSEM datapoint, used its _value property or its last50_values buffer queue
+		:param dp: The calling JSEM datapoint, use its value property or its last100_values buffer queue
 		:param args:
 		:param kwargs:
 		:return:
 		"""
-		if dp: self.value = dp.last50_values[-1]
+		if dp: self.value = dp.value
 	
 	def update_chart(self):
 		# Create a DateTimeLine chart
@@ -599,8 +682,8 @@ class ALB_widget(gui.Container):
 			nw_value (string): The new value of the slider.
 		"""
 		# print(nw_value)
-		
-		factor = (int(nw_value) - self.min_value) / (self.max_value - self.min_value)
+		nw_value = int(float(nw_value))
+		factor = (nw_value - self.min_value) / (self.max_value - self.min_value)
 		
 		# offset1 = self.height/15			# bottom offset
 		# offset2 = self.height/15			# top offset
@@ -617,11 +700,17 @@ class ALB_widget(gui.Container):
 	
 	# @decorate_set_on_listener("(self, emitter, item, new_value, row, column)")
 	@decorate_event
-	def onALBstate_change(self, emitter, nw_state: bool):
+	def onALBstate_change(self, emitter, nw_state: bool=None):
+		if nw_state is None:
+			self.alb_state = not self.alb_state
+			nw_state = self.alb_state
+			
 		if not nw_state:
+			self.name_lbl.set_style('color:black')
 			self.slider_line_indicator.style['visibility'] = 'hidden'
 			self.slide_cont.style['visibility'] = 'hidden'
 		else:
+			self.name_lbl.set_style('color:red')
 			self.slider_line_indicator.style['visibility'] = 'visible'
 			self.slide_cont.style['visibility'] = 'visible'
 		return (nw_state,)
@@ -641,7 +730,7 @@ class PushBtn(gui.Widget):
 		else:
 			self.style['opacity'] = '1.0'
 	
-	def __init__(self, text='', *args, **kwargs):
+	def __init__(self, text='', initial_state=False, initial_locked=False, *args, **kwargs):
 		super().__init__(_type='div', _class='pushbtn', *args, **kwargs)
 		self._locked = False
 		self.attributes['pushbtn'] = 'off'
@@ -664,7 +753,10 @@ class PushBtn(gui.Widget):
 		
 		self.add_child(str(id(self.press)), self.press)
 		self.onclick.connect(self.onpushed)
-	
+
+		self.__set_switch(initial_state)
+		self.set_lock(initial_locked)
+
 	def get_value(self):
 		return self.attributes['pushbtn'] == 'on'
 	
@@ -691,7 +783,7 @@ class PushBtn(gui.Widget):
 	
 	def __set_switch(self, state):
 		if self.locked: return
-		if self.attributes['pushbtn'] == 'off':
+		if state:
 			self.attributes['pushbtn'] = 'on'
 			self.press.style['border-style'] = 'solid solid double solid'
 			self.light.style['background'] = 'red'
@@ -790,9 +882,3 @@ class Switch(gui.Widget):
 			self.off_text.style['visibility'] = 'visible'
 
 
-def waitkey(prompt='Press any key to continue: '):
-	"""
-	Prints a prompt and waits for a keypress
-	:param prompt:
-	"""
-	wait = input(prompt)

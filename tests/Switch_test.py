@@ -1,11 +1,8 @@
-import pathlib
-
 import remi.gui as gui
-from pandas.core.indexes.base import str_t
 from remi import start, App
 
-from common.Common_Utils import get_extra_css
-from remi_addons import Switch
+from common_addons.common_utils import get_extra_css
+from common_addons.remi_addons import Switch
 
 
 class MyApp(App):

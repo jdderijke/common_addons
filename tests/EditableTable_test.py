@@ -1,13 +1,9 @@
-import pathlib
 import pandas as pd
-import remi
 import remi.gui as gui
-from pandas.core.indexes.base import str_t
 from remi import start, App
-import pygal
 
-from common.Common_Utils import get_extra_css
-from remi_addons import EditableTable
+from common_addons.common_utils import get_extra_css
+from common_addons.remi_addons import EditableTable
 
 testdata = [('ID', 'Enabled', 'First Name', 'Last Name'),
 			(101, True, 'Danny zag lange loesje lopen langs de lange lindelaan', 'Young'),

@@ -1,18 +1,26 @@
-import os
-import sys
-import pathlib
-
-
 import logging
-from logging import handlers
-
+import os
+import pathlib
 import socket
+import sys
 import time
 from datetime import datetime
 from pathlib import Path, PosixPath
 
 import pandas as pd
 from dateutil.relativedelta import relativedelta
+
+
+class AttrDict(dict):
+	"""
+	Wraps a dictionary so that dictionary items can be addresses as dot.notation
+	i.e. rather then dict_test[key], use dict_test.key to access item
+	"""
+	def __getattr__(self, item):
+		return super().__getitem__(item)
+	
+	def __setattr__(self, item, value):
+		return super().__setitem__(item, value)
 
 
 def get_logger(name: str = __name__):
@@ -38,7 +46,8 @@ def get_logger(name: str = __name__):
 		logger = logging.getLogger(name)
 	return logger
 
-def update_css_stylestr(orig_style:str, new_style:str)->str:
+
+def update_css_stylestr(orig_style: str, new_style: str) -> str:
 	"""
 	Updates a CSS style-string with another CSS style string... returns the updated CSS style-string
 	:param orig_style: 	The CSS style-string to be updated
@@ -51,12 +60,12 @@ def update_css_stylestr(orig_style:str, new_style:str)->str:
 	new_items = new_style.split(';')
 	orig_items = orig_style.split(';')
 	
-	orig_dict = {x.split(':')[0]:x.split(':')[1] for x in orig_items}
-	new_dict = {x.split(':')[0]:x.split(':')[1] for x in new_items}
-
+	orig_dict = {x.split(':')[0]: x.split(':')[1] for x in orig_items}
+	new_dict = {x.split(':')[0]: x.split(':')[1] for x in new_items}
+	
 	orig_dict.update(new_dict)
 	
-	return ';'.join([f'{k}:{v}' for k,v in orig_dict.items()])
+	return ';'.join([f'{k}:{v}' for k, v in orig_dict.items()])
 
 
 def get_ip_address():
@@ -359,6 +368,16 @@ def IsNot_NOE(value):
 	return not Is_NOE(value)
 
 
+def get_seconds_untill(now=datetime.now(), untill_time='12:00:00'):
+	"""
+	returns the number of seconds from now to the next untill_time (hour:minute:second)
+	"""
+	start = int(now.timestamp())
+	items = untill_time.split(':')
+	end = int(datetime.now().replace(hour=int(items[0]), minute=int(items[1]), second=int(items[2]), microsecond=0).timestamp())
+	diff = end - start
+	return diff if diff > 0 else diff + 24*3600
+
 def thisday_timestamp(now=datetime.now(), at_noon=False):
 	'''
 	Returns the timestamp of the start of this day.... or noon...
@@ -558,5 +577,4 @@ def main(args):
 
 
 if __name__ == '__main__':
-	
 	sys.exit(main(sys.argv))
