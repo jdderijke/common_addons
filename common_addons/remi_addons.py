@@ -5,7 +5,7 @@ from typing import Union
 
 import remi.gui as gui
 import remi
-from common_utils import update_css_stylestr, AttrDict, Waitkey, dump
+from common_addons.common_utils import update_css_stylestr, AttrDict, Waitkey, dump
 from remi import TableTitle
 from remi.gui import decorate_event, decorate_set_on_listener
 
@@ -363,7 +363,44 @@ class TableCheckBox(gui.Container):
 		return (new_value,)
 
 
-class DataLabel(gui.HBox):
+class Conditional_Format_MixIn():
+	def __init__(self, widget, property, cond_formats):
+		self.widget = widget
+		self.property = property
+		self.cond_formats = cond_formats
+		
+	def do_cond_format(self, value):
+		if self.value is None:
+			check = False
+		for cond_format in self.cond_formats:
+			match cond_format['cond']:
+				case "gt"|">":
+					if self.value > cond_format["check_value"]: check=True
+				case "gte"|">=":
+					if self.value >= cond_format["check_value"]: check=True
+				case "st"|"<":
+					if self.value < cond_format["check_value"]: check=True
+				case "ste"|"<=":
+					if self.value <= cond_format["check_value"]: check=True
+				case "eq"|"="|"==":
+					if self.value == cond_format["check_value"]: check=True
+				case "neq"|"!=":
+					if self.value != cond_format["check_value"]: check=True
+				case _:
+					check = False
+			if check:
+				nw_style = cond_format.get('true', None)
+				if nw_style: self.widget.set_style(f'{self.property}:{nw_style}')
+				if cond_format.get('qit', False):
+					return
+			else:
+				nw_style = cond_format.get('false', None)
+				if nw_style: self.widget.set_style(f'{self.property}:{nw_style}')
+
+		return
+
+
+class DataLabel(gui.Container):
 	"""
 	Creates an enhanced label widget to be used for presenting a data element
 	The label can contain the following elements:
@@ -376,65 +413,65 @@ class DataLabel(gui.HBox):
 	Styles for all elements normally inherit from the class style. To change the style for certain elements pass a stylestring
 	for that element as argument
 	"""
-	style = 'height:auto;width:20%;align-items:center;border-style:solid;border-width:2px;border-color:black'
-	text_style = ''
-	name_style = ''
-	group_style = ''
-	value_style = 'width:auto;height:auto;font-size:1.0em'
-	read_write_style = ''
-	unit_style = ''
-	chkbox_style = ''
-	input_style = ''
-	config = {'show_text':False, 'show_name':True, 'show_group':True, 'show_value':True, 'show_unit':True,
-			  'show_input':True, 'show_read_write':True}
-	fields = ['text', 'name', 'group', 'value', 'read_write', 'unit']
-	def __init__(self, data:any=None, **kwargs):
+	cont_style = ('height:auto;width:auto;display:flex;justify-content:flex-start;align-items:center;'
+				  'border-style:solid;border-width:2px;border-color:black;overflow:hidden;font-size:1.0em')
+					
+	default_field_style = 'width:auto;height:auto;font-size:1.0em'
+	default_input_style = 'width:auto;height:auto;font-size:1.0em;border-style:solid;border-width:2px;border-color:black'
+	
+	config = {'fields':[{'name':'name', 'position':'left'},
+						{'name':'value', 'position':'50%'},
+						{'name':'input', 'position':'right', 'is_input':True}]}
+	
+	def __init__(self, fields=None, input_fields=None, field_pos=None, style='', **kwargs):
 		"""
-		:param data:	An string, integer, float or anything that support __str__.
-						Or an object with a name, value, group, unit and rw attribute
+		:param fields:			A dictionary with the fieldnames (key) and per field a dictionary with the value, style and other field information
+		:param input_fields:	A string or list[str], containing the names of the fields that must be ready to accept input (RW)
+		:param field_pos:		An list[int] for the position of the different fields, in %.
+								Omitting will result in auto positioning through the style settings
+						
+		lbl = DataLabel(naam='test', groep='measurements', waarde=2.15, input_fields='waarde', update_fields='waarde' ,
+						field_pos=[0,20,40], style='position:absolute;left:5%;top:5%')
+		lbl = DataLabel(fields={'naam':{'value':'test', 'position':'left'},
+							   'groep':{'value':'measurements', 'style':'left:30%'},
+							   'waarde':{'value':2.15, 'style':'left:60%', style='background:yellow', is_updated:True},
+							   'input':{style:'background:orange', is_input:True}})
+		:examples:
+		lbl.waarde = 2.35
+		lbl.update({'waarde':2.35})
+		lbl.update(2.35)
+		
 		"""
-		style = update_css_stylestr(self.style, kwargs.pop('style',''))
-		super().__init__(style=style, **kwargs)
-		self.set_style(kwargs.pop('style',''))
-		self.config = AttrDict(ChainMap(kwargs.pop('config', {}), self.config))
+		self.style = update_css_stylestr(self.cont_style, style)
+		super().__init__(style=self.style, **kwargs)
 		
-		self.data = {}
-		
-		if data:
-			self.data = data.__dict__
-			self.data = {k:self.data[k] for k in self.fields if k in self.data}
-			self.data = dict(sorted(self.data.items(), key=lambda pair: self.fields.index(pair[0])))
-			pass
-			# if hasattr(data, 'value'): self.data['value'] = data.value
-			# if hasattr(data, 'name'): self.data['name'] = data.name
-			# if hasattr(data, 'group'): self.data['group'] = data.group
-			# if hasattr(data, 'unit'): self.data['unit'] = data.unit
-			# if hasattr(data, 'read_write'):
-			# 	self.data['read_write'] = data.read_write
-
+		if fields is not None:
+			self.fields = fields
 		else:
-			for k in self.fields:
-				if k in kwargs:
-					self.data[k]= kwargs.pop(k)
+			self.fields = {}
+			
+		for fieldname, fieldvalue in kwargs.items():
+			self.fields[fieldname] = {'value':fieldvalue, 'is_input':False, 'is_updated':False, 'style':self.default_field_style}
 		
+		if input_fields:
+			if type(input_fields) is not list: input_fields = [input_fields]
+			for inp_field in input_fields:
+				if inp_field in self.fields:
+					self.fields[inp_field]['is_input'] = True
+					
+					
+		for fieldname, field in self.fields.items():
+			if not field.get('is_input', False):
+				lbl = gui.Label(text=str(field.get('value','')), style=update_css_stylestr(self.default_field_style, field.get('style','')))
+			else:
+				lbl = gui.TextInput(style=update_css_stylestr(self.default_input_style, field.get('style','')))
+				lbl.set_text(str(field.get('value','')))
+				lbl.onchange.connect(self.onchange)
+			self.append(lbl)
 		
-		for field, value in self.data.items():
-			if getattr(self.config, f'show_{field}'):
-				stylestr = update_css_stylestr(getattr(self, f'{field}_style'), kwargs.pop(f'{field}_style', ''))
-				lbl = gui.Label(text=str(value), style=stylestr)
-				setattr(self, f'{field}_lbl', lbl)
-				self.append(lbl)
-				
-		# if self.config.show_value:
-		# 	stylestr = update_css_stylestr(self.value_style, kwargs.pop('value_style', ''))
-		# 	self.name_lbl = gui.Label(text=str(self.data.value if not self.data.alt_text else self.data.alt_text),
-		# 							  style=stylestr)
-		# 	# self.name_lbl = gui.Label(text=self.data.value)
-		# 	self.append(self.name_lbl)
-		
-		# dump(self.config)
-		# Waitkey()
-		
+	@decorate_event
+	def onchange(self, emitter, new_value:str):
+		return (new_value,)
 
 
 class MultilineLabel(gui.Widget):
