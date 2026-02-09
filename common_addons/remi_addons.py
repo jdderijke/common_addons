@@ -449,21 +449,13 @@ class Conditional_Format_MixIn():
 		if self.value is None:
 			check = False
 		for cond_format in self.cond_formats:
-			match cond_format['cond']:
-				case "gt"|">":
-					if self.value > cond_format["check_value"]: check=True
-				case "gte"|">=":
-					if self.value >= cond_format["check_value"]: check=True
-				case "st"|"<":
-					if self.value < cond_format["check_value"]: check=True
-				case "ste"|"<=":
-					if self.value <= cond_format["check_value"]: check=True
-				case "eq"|"="|"==":
-					if self.value == cond_format["check_value"]: check=True
-				case "neq"|"!=":
-					if self.value != cond_format["check_value"]: check=True
-				case _:
-					check = False
+			if cond_format['cond'] in ["gt",">"] and self.value > cond_format["check_value"]: check=True
+			elif cond_format['cond'] in ["gte",">="] and self.value >= cond_format["check_value"]: check=True
+			elif cond_format['cond'] in ["st","<"] and self.value < cond_format["check_value"]: check=True
+			elif cond_format['cond'] in ["ste","<="] and self.value <= cond_format["check_value"]: check=True
+			elif cond_format['cond'] in ["eq","="|"=="] and self.value == cond_format["check_value"]: check=True
+			elif cond_format['cond'] in ["neq","!="] and self.value != cond_format["check_value"]: check=True
+			else: check = False
 			if check:
 				nw_style = cond_format.get('true', None)
 				if nw_style: self.widget.set_style(f'{self.property}:{nw_style}')
