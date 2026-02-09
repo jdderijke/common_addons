@@ -53,15 +53,12 @@ def get_logger2(name: str = __name__):
 
 
 def get_logger(name: str = __name__, level: str = "info"):
-	match level.upper():
-		case "INFO" | "I":
-			logging_level = logging.INFO
-		case "DEBUG" | "D":
-			logging_level = logging.DEBUG
-		case "ERROR" | "E":
-			logging_level = logging.ERROR
-		case _:
-			logging_level = logging.INFO
+	if level.upper() in ["INFO","I"]: logging_level = logging.INFO
+	elif level.upper() in ["DEBUG","D"]: logging_level = logging.DEBUG
+	elif level.upper() in ["WARNING","W"]: logging_level = logging.WARNING
+	elif level.upper() in ["ERROR","E"]: logging_level = logging.ERROR
+	else:
+		logging_level = logging.INFO
 	
 	if os.getenv("ENV") == "DEV":
 		logging.basicConfig(
