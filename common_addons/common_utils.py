@@ -23,7 +23,12 @@ class AttrDict(dict):
 		return super().__setitem__(item, value)
 
 
-def get_logger(name: str = __name__):
+def get_logger2(name: str = __name__):
+	"""
+	A get logger special for JSEM package
+	:param name:
+	:return:
+	"""
 	if os.getenv("ENV") == "DEV":
 		logging.basicConfig(
 			level=logging.INFO,
@@ -46,6 +51,97 @@ def get_logger(name: str = __name__):
 		logger = logging.getLogger(name)
 	return logger
 
+
+def get_logger(name: str = __name__, level: str = "info"):
+	match level.upper():
+		case "INFO" | "I":
+			logging_level = logging.INFO
+		case "DEBUG" | "D":
+			logging_level = logging.DEBUG
+		case "ERROR" | "E":
+			logging_level = logging.ERROR
+		case _:
+			logging_level = logging.INFO
+	
+	if os.getenv("ENV") == "DEV":
+		logging.basicConfig(
+			level=logging_level,
+			format="%(asctime)s - %(levelname)s - %(module)s:%(funcName)s - %(message)s",
+			datefmt="%Y-%m-%d %H:%M:%S"
+		)
+		logger = logging.getLogger(name)
+	else:
+		filepath = Path('Logs', f'{name}.log')
+		Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+		logfile_handler = logging.FileHandler(filepath, mode="w")
+		# logfile_handler = handlers.RotatingFileHandler(filepath, mode="w", backupCount=5)
+		std_handler = logging.StreamHandler(sys.stdout)
+		logging.basicConfig(
+			level=logging_level,
+			format="%(asctime)s - %(levelname)s - %(module)s:%(funcName)s - %(message)s",
+			datefmt="%Y-%m-%d %H:%M:%S",
+			handlers=[logfile_handler, std_handler]
+		)
+		logger = logging.getLogger(name)
+	return logger
+
+
+import pygal as pg
+from pygal.style import Style
+
+
+def pg_style(stylestr: str = ''):
+	'''
+		background="transparent",
+		plot_background="transparent",
+		major_label_font_size=18,
+		tooltip_font_size=8,
+		title_font_family="Arial",
+		title_font_size=14,
+		stroke_width=2,
+		colors=["red", "blue", "green", "black", "yellow", "orange", "purple", "darkgrey"])
+	background:transparent;plot_background:transparent;major_label_font_size:18;colors:red,blue,green,black
+	:param stylestr:
+	:return:
+	'''
+	result = Style()
+	style_list = stylestr.split(';')
+	for elem in style_list:
+		elem_name = elem.split(':')[0]
+		elem_value = elem.split(':')[1]
+		if elem_name == 'colors':
+			elem_value = [str(v) for v in elem_value.split(',')]
+		elif elem_value in ['False']:
+			elem_value = False
+		elif elem_value in ['True']:
+			elem_value = True
+		elif elem_value.isnumeric():
+			elem_value = int(elem_value)
+		else:
+			pass
+		
+		setattr(result, elem_name, elem_value)
+	return result
+
+def get_attr_from_stylestr(style_str, attr_name, default_answer=None):
+	"""
+	returns the value of an attribute from a css stylestring
+	:param style_str: The css stylestring to search in
+	:param attr_name: Name of the attribute to search for
+	:param default_answer: results returned is no match is found
+	:return: the value of the attribute found or the default_answer if the attribute was not found
+	"""
+	if not style_str:
+		return default_answer
+	if not attr_name:
+		raise ValueError("attr_name argument is mandatory en must be not empty")
+
+	style_items = style_str.split(';')
+	attributes = {x.split(':')[0]: x.split(':')[1] for x in style_items}
+	if attr_name in attributes:
+		return attributes[attr_name]
+	else:
+		return default_answer
 
 def update_css_stylestr(orig_style: str, new_style: str) -> str:
 	"""
@@ -368,11 +464,18 @@ def IsNot_NOE(value):
 	return not Is_NOE(value)
 
 
-def get_seconds_untill(now=datetime.now(), untill_time='12:00:00'):
+def get_seconds_untill_next(now=datetime.now(), untill_time='12:00:00'):
 	"""
 	returns the number of seconds from now to the next untill_time (hour:minute:second)
+	of untill next: 'hour', 'half_hour', '10_min', 'min'
 	"""
 	start = int(now.timestamp())
+	
+	if untill_time.lower() in ['hour']: return 3600 - start % 3600
+	if untill_time.lower() in ['halfhour, half_hour']: return 1800 - start % 1800
+	if untill_time.lower() in ['10min, 10_min, 10_minutes']: return 600 - start % 600
+	if untill_time.lower() in ['min, minute']: return 60 - start % 60
+
 	items = untill_time.split(':')
 	end = int(datetime.now().replace(hour=int(items[0]), minute=int(items[1]), second=int(items[2]), microsecond=0).timestamp())
 	diff = end - start
@@ -418,6 +521,14 @@ def get_begin_of_week(check_day=datetime.now(), sunday_as_start=True):
 	start = check_day - timedelta(days=week_day)
 	return start.replace(hour=0, minute=0, second=0, microsecond=0)
 
+def get_months_between_dates(date1:datetime, date2:datetime)->int:
+	"""
+	Returns the number of months between 2 dates..
+	:param date1: The later date
+	:param date2: The earlier date
+	:return: number of months in between
+	"""
+	return (date1.year - date2.year) * 12 + date1.month - date2.month
 
 def get_days_in_month(selecteddate=datetime.now()):
 	'''
@@ -544,35 +655,9 @@ class Doc(object):
 		pass
 
 
-class Test(object):
-	"""
-	Dit is een Test object
-	:param name: Naam van de boel
-	:param cdrh: Cash Data
-	:param economy_mode: Economy boel
-	"""
-	
-	def __init__(self, name, cdrh, economy_mode):
-		self.doc = Doc(self)
-		self.name = "name"
-		self.doc.name = "dit is een documentatie test"
-		
-		self.cdrh = 3000  # pipo de clown
-		self.doc.cdrh = """ Cash Data Retention Hours"""
-		
-		self.economy_mode = True
-		self.doc.economy_mode = "Dit is de documentatie van de economy mode"
-		
-		self.holdings = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 
 def main(args):
-	test = Test("een", 3000, True)
-	print(test.__doc__)
-	
-	print(getAttributes(test))
-	for attr, value in getAttributes(test).items():
-		print(attr, value, getattr(getattr(test, "doc"), attr))
 	print("Finished...")
 
 

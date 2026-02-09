@@ -16,6 +16,21 @@ def is_child_of(child, parent):
 	else:
 		return is_child_of(level_up, parent)
 
+def remove_child_from_widget(child, parent):
+	"""
+	Remi does not support removal of children that where not added with the append method first
+	....so we have to do it manually
+	:param child: The child widget or HTML phrase
+	:param parent: The parent widget
+	:return:
+	"""
+	if child is None: return
+	if child in parent.children.values():
+		# This child indeed is a child of parent, it should have an id as key
+		k = str(id(child))
+		if k in parent._render_children_list:
+			parent._render_children_list.remove(k)
+		parent.children.pop(k)
 
 def set_mouse(*args, **kwargs):
 	print("args: ", args)

@@ -35,7 +35,7 @@ class MyApp(App):
 	
 	def main(self):
 		# Add my own stylesheet
-		style_str = get_extra_css('css')
+		style_str = get_extra_css('../common_addons/css')
 		head = self.page.get_child('head')
 		head.add_child(str(id(style_str)), style_str)
 		
@@ -45,10 +45,11 @@ class MyApp(App):
 		# self.table_cont = gui.Container(style='height:auto; width:50%; overflow-y:scroll; background-color:silver')
 		self.table_cont = gui.Container(style='width:auto; margin:20px; background-color:silver')
 
-		self.table = EditableTable(theme='theme0', sort_on_title_click=False, style='table-layout:auto; white-space:nowrap; font-size:1.0em')
+		self.table = EditableTable(sort_on_title_click=True, style='table-layout:auto; white-space:nowrap; font-size:1.0em')
 		# self.table.set_data(test_df, tt_df, editable=['ID','Last Name'], tip_type='item',
 		# 							tt_style='color:black;height:auto;left:50%;top:50%;width:auto;min-width:150px')
-		self.table.set_data(test_df, editable=['ID','Last Name'])
+		self.table.set_data(test_df, editable=['Enabled','Last Name'], toggle=['Enabled'],
+							buttons={'ID':{'hndlr':lambda widg, row, col, tr:print(widg,row,col,tr.data_link), 'symbol':'\u25BC'}}, rowdata_links=test_df['ID'].values.tolist())
 
 		self.table.on_item_changed.connect(self.on_item_changed_hndlr)
 		# self.table.onclick.connect(self.table_click)

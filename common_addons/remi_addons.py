@@ -5,7 +5,7 @@ from typing import Union
 
 import remi.gui as gui
 import remi
-from common_addons.common_utils import update_css_stylestr, AttrDict, Waitkey, dump
+from common_utils import update_css_stylestr, AttrDict, Waitkey, dump
 from remi import TableTitle
 from remi.gui import decorate_event, decorate_set_on_listener
 
@@ -22,68 +22,89 @@ class EditableTable(gui.Table):
 	Simplified version of the Remi table widget.
 	"""
 	
-	def __init__(self, *args, **kwargs):
+	def __init__(self, theme='theme1', sort_on_title_click=True, **kwargs):
 		"""
 		:param args: See gui.Container.__init__()
-		
-		:keyword theme:		Specify a specific CSS theme, default empty string
-		:keyword sort_on_title_click: Sort the table when the title row is clicked
-		:keyword style:	Sets the style of the table parent object
+
+		:param theme:					Specify a specific CSS theme, default empty string (equals theme1)
+		:param sort_on_title_click: 	Sort the table when the title row is clicked
+		:keyword style:					Sets the style of the table parent object
 		"""
 		self.__column_count = 0
-		super(EditableTable, self).__init__(*args, **kwargs)
-		self.theme = kwargs.pop('theme', 'theme1')
-		self.add_class(self.theme)
-		self._editable_check = []
-		self.editable = []
+		super(EditableTable, self).__init__(**kwargs)
 		self.css_display = 'table'
+		self.add_class(theme)
+		self.sort_on_title_click = sort_on_title_click
+		# if self.sort_on_title_click:
+		# self.on_table_row_click.connect(self.on_table_row_click)
+		
 		self.row_count = 0
 		self.column_count = 0
-		self.sort_column = None
+		self.sort_item = None
 		
 		self.table_data = []
 		""" The internally used table_data list including tooltips and index"""
+		
 		self.initial_list = []
 		""" initially loaded list, used for reset/cancel purpose"""
-		self.tt_list = []
-		self.tip_type = "item"
-		self.tt_style = ''
-		# self.table_list = []
-		# """ The updated list, automatically updated with all edits"""
-		# self.table_df = None
-		# """ The updated dataframe, automatically updated with all edits, only used when loaded from dataframe"""
-		self.sort_on_title_click = kwargs.pop('sort_on_title_click', True)
 		
-		if self.sort_on_title_click:
-			self.on_table_row_click.connect(self.table_row_clicked)
+		self.editable = []
+		self._editable_check = []
+		self.toggle = []
+		self._toggle_check = []
+		self.toggle_in_progress = False
+		
+		self.tooltips = []
+		self.tip_type = 'item'
+		self.tt_style = ''
+		self.rowdata_links = []
+		
+		self.btn_columns = {}
 	
 	def set_data(self, table_data: Union[list[list], pd.DataFrame],
-				 tooltips: Union[list[list[str]], pd.DataFrame] = [], editable: list[str] = [],
-				 tip_type: str = 'item', tt_style: str = '', update_only=False):
+				 tooltips: Union[list[list[str]], pd.DataFrame] = None, editable: list[str] = None,
+				 toggle: list[str] = None, buttons: dict = None,
+				 tip_type: str = 'item', tt_style: str = '', update_only=False, rowdata_links: list = None, **kwargs):
 		"""
 			Normal way to fill the table after the constructor.
 			The table is build from a List of Lists (All rows MUST have equal length and first row is header/title row),
 			or from a DataFrama (column names are header/title row). Optionally tooltips can be specified which will show
 			on mouseover on item or row level (tip_type).
-			
-			:param table_list:	Can be a list[list] or a DataFrame. In case of list[list] first row is header/title row,
-								all rows must have equal lengths.
-			:param tooltips: 	Can be a list[list] or a DataFrame. In both cases first row is title tooltips. The list[list]
-								or DataFrame will be automatically redimensioned to fit the table_data
-			:param editable: 	list with column names for editable columns
-			:param tip_type: 	tooltip behaviour, item or row
-			:param tt_style:	Style string for the tooltip
-			:param update_only:	Update or refresh the table maintaining any active sort
-			
+
+			:param table_list:		Can be a list[list] or a DataFrame. In case of list[list] first row is header/title row,
+									all rows must have equal lengths.
+			:param tooltips: 		Can be a list[list] or a DataFrame. In both cases first row is title tooltips. The list[list]
+									or DataFrame will be automatically redimensioned to fit the table_data
+			:param editable: 		list with column names for editable columns
+			:param toggle:			(only works on editable columns with boolean values)
+									list with column names with a toggle functionality, a small 'T' button will be shown in de column title
+									when clicked all True values in that column will be flipped to False and vice versa
+			:param buttons:			(only works on non_editable columns)
+									Creates a button in every cell of the specified column. When
+									clicked the hndlr routine will be called with the arguments: btn, row_nr, col_nr, table_item). The table_item
+									has an attribute data_link (populated from the rowdata_links list) that can be used to pass meaningful
+									information to the handler routine.
+									format: buttons={'col_name':{'hndlr':handler_routine, 'symbol':'symbol_to_show_on_button', 'style':'button specific style'}}
+			:param tip_type: 		tooltip behaviour, item or row
+			:param tt_style:		Style string for the tooltip
+			:param update_only:		Update or refresh the table maintaining any active sort
+			:param rowdata_links:	Key or link to datastructures represented in the table title and datarows.
+									accessible through Tablerow data_link attribute. and Tableitem data_link attribute.
+									When providing this list make sure there is also a rowdata_link for the title row provided...
+									if nothing is provided None will be used
+
 			:return:
 
 			Examples:
 				| test = EditableTable()
-				| test.fill_from_list([['column1','column2','column3'],[True,'John','Doe'],[False,'Remi','GUI']],
-										editable=['column1', 'column3'])
-	
-			Raises:
-				ValueError : raised when the passed content list of lists contains rows of un-equal length
+				|
+				| test.set_data([['column1','column2','column3'],[True,'John','Doe'],[False,'Remi','GUI']],
+				|						editable=['column1', 'column3'], toggle=['column1'],
+				|						buttons={'column2':{'hndlr':lambda *args:print('clicked'), 'symbol':'>'}})
+
+			:raises TypeError:	When the table_data is ot of type list[list] or pd.DataFrame
+			:raises ValueError:	When the table_data list of lists contains rows of un-equal length
+
 
 		"""
 		
@@ -93,59 +114,74 @@ class EditableTable(gui.Table):
 			header = table_data.columns.tolist()
 			data = [header] + table_data.values.tolist()
 		else:
-			raise ValueError(f'Table list should be of type list or DataFrame.. not {type(table_data)}')
-		# store the initial_list for reset/cancel purposes
-		self.initial_list = data
-		
-		max_columns = max(map(len, data))
-		min_columns = min(map(len, data))
-		if max_columns != min_columns: raise ValueError('Passed table rows must have identical column count...')
-		self.column_count = max_columns
-		self.row_count = len(data)
-		
-		
-		if type(tooltips) is pd.DataFrame and tooltips.empty:
-			tooltips = [[]]
-		elif type(tooltips) is list and not tooltips:
-			tooltips = [[]]
-
-		if type(tooltips) is list:
-			tooltips = self._re_dim(tooltips, self.row_count, self.column_count)
-		elif type(tooltips) is pd.DataFrame:
-			tooltips = self._re_dim(tooltips.values.tolist(), self.row_count, self.column_count)
-		else:
-			raise ValueError(f'Tooltips should be of type list[list] or pd.DataFrame.. not {type(tooltips)}')
-		
-		# store arguments like editable, the tooltips, type and style for reset/cancel purposes
-		self.editable = editable
-		self.tt_list = tooltips
-		self.tip_type = tip_type
-		self.tt_style = tt_style
-		
-		# construct a data structure with the table_data, the tooltips and an index (to store the original sort sequence)
-		self.table_data = [data[x] + tooltips[x] + [x] for x in range(len(data))]
-		
-		
-		self._editable_check = [self.table_data[0][x] in editable for x in range(self.column_count)]
+			raise TypeError(f'Table list should be of type list or DataFrame.. not {type(table_data)}')
 		
 		if not update_only:
+			# store the initial_list for reset/cancel purposes
+			self.initial_list = data
+			
+			# determine the table dimensions and check table validity
+			max_columns = max(map(len, data))
+			min_columns = min(map(len, data))
+			if max_columns != min_columns: raise ValueError('Passed table rows must have identical column count...')
+			self.column_count = max_columns
+			self.row_count = len(data)
+			# if len(data) > 1:
+			# 	self.column_types = [type(x) for x in data[1][:self.column_count]]
+			# else:
+			# 	self.column_types = [None for x in range(self.column_count)]
+			#
+			# for row in data[1:]:
+			# 	for teller, col in enumerate(row):
+			# 		if type(col) is not self.column_types[teller]:
+			# 			raise TypeError(f'{data[0][teller]}--All values in 1 column should be of the same type...')
+			
+			# pre-checks and conversions
+			if tooltips is None: tooltips = [[]]
+			if type(tooltips) is pd.DataFrame and tooltips.empty: tooltips = [[]]
+			if type(tooltips) is pd.DataFrame: tooltips = tooltips.values.tolist()
+			tooltips = self._re_dim(tooltips, self.row_count, self.column_count)
+			
+			# store arguments like editable, the tooltips, type and style for reset/cancel purposes
+			self.editable = editable if editable is not None else []
+			self._editable_check = [data[0][x] in self.editable for x in range(self.column_count)]
+			self.toggle = toggle if toggle is not None else []
+			self._toggle_check = [data[0][x] in self.toggle for x in range(self.column_count)]
+			
+			self.buttons = buttons if buttons is not None else {}
+			self._button_check = [data[0][x] in self.buttons for x in range(self.column_count)]
+			self._button_hndlr = [self.buttons.get(data[0][x], {}).get('hndlr', None) for x in range(self.column_count)]
+			self._button_symb = [self.buttons.get(data[0][x], {}).get('symbol', '') for x in range(self.column_count)]
+			self._button_style = [self.buttons.get(data[0][x], {}).get('style', '') for x in range(self.column_count)]
+
+			self.rowdata_links = [None for x in range(len(self.initial_list))]
+			if rowdata_links is not None: self.rowdata_links = self.rowdata_links[:-len(rowdata_links)] + rowdata_links
+
+			self.tooltips = tooltips
+			self.tip_type = tip_type
+			self.tt_style = tt_style
 			# start with a clean empty table, reset the sort
-			self.sort_column = None
+			self.sort_item = None
 			self._reverse_sort = [True for x in range(self.column_count)]
 			self.empty()
-		else:
-			if self.sort_column:
-				# match the existing sort in the table
-				sorted_data = sorted(self.table_data[1:], key=lambda x: x[self.sort_column], reverse=self._reverse_sort[self.sort_column])
-				sorted_data = [self.table_data[0]] + sorted_data
-				self.table_data = sorted_data
+		
+		# construct a data structure with the table_data, the tooltips and an index (to store the original sort sequence)
+		self.table_data = [data[x] + self.tooltips[x] + [self.rowdata_links[x]] + [x] for x in range(len(data))]
+		
+		
+		if update_only and self.sort_item:
+			# re-create the pre-existing sort in the table
+			sorted_data = sorted(self.table_data[1:], key=lambda x: x[self.sort_item.column_number],
+								 reverse=self._reverse_sort[self.sort_item.column_number])
+			sorted_data = [self.table_data[0]] + sorted_data
+			self.table_data = sorted_data
 		
 		self._build_table()
 	
 	def get_data(self, as_dataframe: bool = False) -> Union[list[list], pd.DataFrame]:
 		"""
 		Returns a list[list] with the current data of the table. First row is title row
-		
+
 		:param as_dataframe: Return result as a dataframe, column names from title row
 		:return: list[list] or pd.DataFrame
 		"""
@@ -158,8 +194,8 @@ class EditableTable(gui.Table):
 		result = [row[:-1] for row in result]
 		
 		if as_dataframe:
-			result = pd.DataFrame(data = result[1:], columns=result[0])
-			
+			result = pd.DataFrame(data=result[1:], columns=result[0])
+		
 		return result
 	
 	def _build_table(self):
@@ -170,76 +206,86 @@ class EditableTable(gui.Table):
 			else:
 				tr = gui.TableRow()
 				self.append(tr, str(i))
-
+			tr.data_link = self.table_data[i][-2]
+			
+			# before we start with the columns in the table, check if there are btn columns defined
+			
+		
+		
 			for c in range(self.column_count):
 				data = self.table_data[i][c]
 				if str(c) in tr.children:
 					ti = tr.get_child(str(c))
 					ti.set_text(f'{data}')
-					
-					# match type(ti):
-					# 	case gui.TableTitle:
-					# 		ti.set_text(f'{data}')
-					# 	case remi_addons.TableCheckBox:
-					# 		ti.set_text(f'{data}')
-					# 	case gui.TableEditableItem:
-					# 		ti.set_text(f'{data}')
-					# 	case gui.TableItem:
-					# 		ti.set_text(f'{data}')
+					# mark the active sort column with a visible border
+					if self.sort_item is ti: ti.style['border'] = 'solid 3px black'
+				
 				else:
 					if i == 0:
-						ti = gui.TableTitle(f'{data}')
-					
-					# down = gui.Svg(style='width:20%; height:20%; visibility:hidden; align-self:flex-end')
-					# down.set_viewbox(0, 0, 100, 100)
-					# dwn_svg = gui.SvgPolyline()
-					# dwn_svg.add_coord(0, 0)
-					# dwn_svg.add_coord(50, 100)
-					# dwn_svg.add_coord(100, 0)
-					# dwn_svg.add_coord(0, 0)
-					# dwn_svg.set_stroke(0)
-					# dwn_svg.set_fill('green')
-					# down.append(dwn_svg)
-					#
-					# up = gui.Svg(style='width:20%; height:20%; visibility:hidden; align-self:flex-end')
-					# up.set_viewbox(0, 0, 100, 100)
-					# up_svg = gui.SvgPolyline()
-					# up_svg.add_coord(0, 100)
-					# up_svg.add_coord(50, 0)
-					# up_svg.add_coord(100, 100)
-					# up_svg.add_coord(0, 100)
-					# up_svg.set_stroke(0)
-					# up_svg.set_fill('red')
-					# up.append(up_svg)
-					#
-					# cl.append(down, 'down')
-					# cl.append(up, 'up')
-					
-					elif self._editable_check[c]:
-						ti = TableCheckBox(data) if type(data) is bool else gui.TableEditableItem(f'{data}')
-						ti.onchange.connect(self.on_item_changed, int(i), int(c))
+						if self._toggle_check[c] and self._editable_check[c]:
+							ti = gui.HBox(style='width:100%;height:100%;justify-content:space-between')
+							ti.type = 'th'
+							title = gui.Label(f'{data}', style='margin: 0px 5px 0px 0px')
+							tgl_btn = gui.Button('T', style='height:100%;background:red;color:white;margin: 0px 0px 0px 5px')
+							tgl_btn.onclick.connect(self.on_toggle, i, c, )
+							ti.set_text = title.set_text
+							ti.get_text = title.get_text
+							ti.append([title, tgl_btn])
+							
+						else:
+							ti = gui.TableTitle(f'{data}')
+							
 					else:
-						ti = gui.TableItem(f'{data}')
-					
-					tt_item_tip = self.table_data[i][self.column_count + c]
-					if tt_item_tip:
-						tt = gui.Widget(_type='div', _class='tiptext', style=self.tt_style)
-						tt.add_child(str(id(tt_item_tip)), tt_item_tip)
-						if self.tip_type.lower() == 'row' and c == 0:
-							tr.add_class('hooverhere')
-							ti.append(tt)
-						elif self.tip_type.lower() == 'item':
-							ti.add_class('hooverhere')
-							ti.append(tt)
+						# Not a title row
+						if self._button_check[c] and not self._editable_check[c]:
+							ti = gui.HBox(style='width:100%;height:100%;justify-content:space-between')
+							ti.type = 'td'
+							cell_txt = gui.Label(f'{data}', style='margin: 0px 5px 0px 0px')
+							cell_btn = gui.Button(self._button_symb[c],
+												  style='height:100%;background:grey;color:black;margin: 0px 0px 0px 5px')
+							if self._button_style[c]: cell_btn.set_style(self._button_style[c])
+							# cell_btn = gui.Button(u'\u8635', style='height:100%;background:grey;color:black')
+							cell_btn.onclick.connect(self._button_hndlr[c], self, tr, ti, i, c,)
+							ti.set_text = cell_txt.set_text
+							ti.get_text = cell_txt.get_text
+							
+							# ti.set_text('pipo')
+							
+							ti.append([cell_txt, cell_btn])
+
+						elif self._editable_check[c]:
+							ti = TableCheckBox(data) if type(data) is bool else gui.TableEditableItem(f'{data}')
+							ti.onchange.connect(self.on_item_changed, int(i), int(c))
+						else:
+							ti = gui.TableItem(f'{data}')
 					
 					tr.append(ti, str(c))
+				
+				# now deal with the data_link, they get sorted with the table_data and must be re-connected
+				ti.data_link = self.table_data[i][-2]
+				ti.column_name = self.initial_list[0][c]
+				ti.column_number = c
+				ti.row_number = i
+				
+				# The tooltips need to be connected, they may need to change because of a sort action
+				tt_item_tip = self.table_data[i][self.column_count + c]
+				if tt_item_tip:
+					if '_tt' in ti.children: ti.remove_child(ti.get_child('_tt'))
+					tt = gui.Widget(_type='div', _class='tiptext', style=self.tt_style)
+					tt.add_child(str(id(tt_item_tip)), tt_item_tip)
+					if self.tip_type.lower() == 'row' and c == 0:
+						tr.add_class('hooverhere')
+						ti.append(tt, key='_tt')
+					elif self.tip_type.lower() == 'item':
+						ti.add_class('hooverhere')
+						ti.append(tt, key='_tt')
 	
 	def reset(self):
 		"""
 		Resets all values in the table to their initial values. Also resets sorting
 		"""
 		if self.initial_list:
-			self.set_data(self.initial_list, self.tt_list, editable=self.editable,
+			self.set_data(self.initial_list, self.tooltips, editable=self.editable,
 						  tip_type=self.tip_type, tt_style=self.tt_style)
 	
 	def item_at(self, row, column):
@@ -295,17 +341,16 @@ class EditableTable(gui.Table):
 			nw_list[teller] = nw_list[teller][:column_count] + [None] * (column_count - len(nw_list[teller]))
 		return nw_list
 	
-	# @decorate_set_on_listener("(self, emitter, item, new_value, row, column)")
 	@decorate_event
 	def on_item_changed(self, item, new_value, row, column):
 		"""Event for the item change.
 
 		Args:
-			emitter (TableWidget): The emitter of the event.
-			item (TableItem): The TableItem instance.
-			new_value (str): New text content.
-			row (int): row index.
-			column (int): column index.
+			emitter (TableWidget): 	The emitter of the event.
+			item (TableItem): 		The TableItem instance.
+			new_value: 				New text content.
+			row (int): 				row index.
+			column (int): 			column index.
 		"""
 		casting_type = type(self.table_data[row][column])
 		# if self.table_df is not None:
@@ -316,17 +361,48 @@ class EditableTable(gui.Table):
 		return (item, new_value, row, column)
 	
 	@decorate_event
-	def table_row_clicked(self, table_widget, table_row, table_item, **kwargs):
-		if type(table_item) is TableTitle:
-			row, col = self.item_coords(table_item)
+	def on_table_row_click(self, table_row, table_item):
+		""" Event for the table row clicked
+		:param table_row: 	Tablerow instance
+		:param table_item: 	Tableitem instance, is TableTitle instance for a title row click..
+		:return:
+		"""
+		# always reset the toggle, even if no sorting is enabled!
+		if self.toggle_in_progress:
+			self.toggle_in_progress = False
+			return
+		
+		if not self.sort_on_title_click: return
+		
+		row, col = table_item.row_number, table_item.column_number
+		if row == 0:
 			# sort the content, keep the header
-			self.sort_column = col
+			# Give the active sort item a clearly visible border
+			if self.sort_item: self.sort_item.style['border'] = ''
 			self._reverse_sort[col] = not self._reverse_sort[col]
 			sorted_data = sorted(self.table_data[1:], key=lambda x: x[col], reverse=self._reverse_sort[col])
 			sorted_data = [self.table_data[0]] + sorted_data
 			self.table_data = sorted_data
-			self.empty()
+			self.sort_item = table_item
+			self.sort_item.style['border'] = 'solid 3px black'
+			# self.empty()
 			self._build_table()
+		return (table_row, table_item)
+	
+	@decorate_event
+	def on_toggle(self, tgl_btn, row, column):
+		"""
+		Toggles the boolean value of the entries in the column
+		 * Does NOT call the on_item_changed event...
+		 * connect to the on_toggle event to do any actions needed beyond just toggling the values
+		"""
+		if not row == 0: return
+		self.toggle_in_progress = True
+		
+		tmp_df = self.get_data(as_dataframe=True)
+		tmp_df.iloc[:, column] = ~ tmp_df.iloc[:, column]
+		self.set_data(tmp_df, update_only=True)
+		return (row, column)
 
 
 class TableCheckBox(gui.Container):
